@@ -1,24 +1,29 @@
-h1{
-    position: fixed;
-    color: black;
-    background-color: rgba(159,159,159,0.7);
-    margin-left: 70%;
-    margin-top: 0%;
-    z-index: 2;
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
 
-body{
-	width: 100%;
-	height: 100%;
-	margin: 5px;
-	font-family: "Helvetica Neue", Arial, Helveticam sans-serif;
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.map-title {
+    flex: 0 0 auto;
+    text-align: center;
+    background-color: orange;
+    color: white;
+    padding: 15px;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    font-size: 28px;
 }
 
 #map {
-	height:98%;
-	width:98vw;
-	left:1%;
-	overflow:hidden;
-	position:fixed;
-	border:1px #444 solid;
+    flex: 1 1 auto;
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
+
