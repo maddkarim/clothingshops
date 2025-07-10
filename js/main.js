@@ -1,263 +1,237 @@
 // Using Leaflet for creating the map and adding controls for interacting with the map
 
 //
-// --- Part 1: Adding base maps ---
+// --- Part 1: Initializing the map and base layers ---
 
-// Creating the map; centering on Salzburg city and setting zoom level.
-// The map container has the ID 'map' in the HTML file.
-var map = L.map('map', {
-    center: [47.8095, 13.0550], // Centered on Salzburg city
-    zoom: 13 // Closer zoom to see city-level detail
-});
+// Creating the map; centered on Salzburg and setting zoom level
+const map = L.map("map").setView([47.8011, 13.0439], 14);
 
-// Adding OpenStreetMap as the base map layer
-var osmap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
-
-
-// ---- Part 2: Adding a scale bar
-//
-L.control.scale({
-    position: 'bottomright',
-    imperial: false
-}).addTo(map);
-
-//
-//
-// ---- Part 3: Adding GeoJSON point features for clothing shops
-//
-// Load the GeoJSON file using fetch
-fetch('data/clothshops.geojson')
-  .then(response => response.json())
-  .then(data => {
-    console.log("Loaded shops:", data);
-
-    L.geoJSON(data, {
-      pointToLayer: function (feature, latlng) {
-        return L.circleMarker(latlng, {
-          radius: 6,
-          fillColor: "#ff6600",
-          color: "#fff",
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.8
-        });
-      },
-      onEachFeature: function (feature, layer) {
-        const props = feature.properties;
-        layer.bindPopup(
-          `<strong>${props.name || 'Unnamed shop'}</strong><br>` +
-          `Type: ${props.shop || 'N/A'}<br>` +
-          `Opening hours: ${props.opening_ho || 'Not listed'}`
-        );
-      }
-    }).addTo(map);
-  }); 
-
-
-  // --- PART 4: Button to locate the user on demand ---
-
-// Create a custom Leaflet control (button)
-var locateControl = L.control({position: 'topright'});
-
-locateControl.onAdd = function(map) {
-    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-
-    // Button style
-    div.innerHTML = '<button id="locateBtn" title="Show My Location">📍</button>';
-    div.style.backgroundColor = 'white';
-    div.style.padding = '5px';
-
-    return div;
+// Defining base layers (CartoDB Positron and OpenStreetMap)
+const baseLayers = {
+  "CartoDB Positron": L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    attribution: "&copy; OpenStreetMap & CartoDB",
+    maxZoom: 19
+  }),
+  "OpenStreetMap": L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap",
+    maxZoom: 19
+  })
 };
 
-locateControl.addTo(map);
+// Adding default base layer (CartoDB Positron) to the map
+baseLayers["CartoDB Positron"].addTo(map);
 
-// When the button is clicked, locate the user
-document.getElementById('locateBtn').onclick = function() {
-    map.locate({
-        setView: true,
-        maxZoom: 16
-    });
-};
+// Adding a layer control to switch between base maps
+L.control.layers(baseLayers).addTo(map);
 
-// When location is found, add a marker and popup
-map.on('locationfound', function(e) {
-    L.marker(e.latlng)
-        .addTo(map)
-        .bindPopup("📍 You are here!")
-        .openPopup();
+//
+// --- Part 2: Adding scale bar ---
+//
+
+// Adds a scale bar to the bottom-left of the map (metric only)
+L.control.scale().addTo(map);
+
+//
+// --- Part 3: Locate user and show location on the map ---
+//
+
+// Handle location button click to trigger geolocation
+const locateBtn = document.getElementById("locate-btn");
+locateBtn.addEventListener("click", () => {
+  map.locate({ setView: true, maxZoom: 16 });
 });
 
-// If location fails or is denied
-map.on('locationerror', function(e) {
-    alert("Geolocation error: " + e.message);
-});
-
-//---- Part 5: Adding GeoJSON points with popups and hover effects
-let clothingShopsLayer;
-
-fetch('data/clothshops.geojson')
-  .then(response => response.json())
-  .then(data => {
-    clothingShopsLayer = L.geoJSON(data, {
-      pointToLayer: function (feature, latlng) {
-        return L.circleMarker(latlng, {
-          radius: 8,
-          fillColor: "#ff6600",
-          color: "#ffffff",
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.9
-        });
-      },
-      onEachFeature: function (feature, layer) {
-        const props = feature.properties;
-        let popupContent = `<b>${props.name || 'No name'}</b><br>`;
-        popupContent += `<b>Working days:</b> ${props.opening_ho || 'Not listed'}<br>`;
-        popupContent += `<b>Clothes type:</b> ${props.clothes || 'Not specified'}`;
-
-        layer.bindPopup(popupContent);
-
-        layer.on('click', function (e) {
-          map.setView(e.latlng, 17);
-          layer.openPopup();
-        });
-
-        layer.on('mouseover', function () {
-          layer.setStyle({
-            color: '#000000',
-            weight: 3,
-            fillColor: '#ffff00'
-          });
-        });
-
-        layer.on('mouseout', function () {
-          layer.setStyle({
-            color: '#ffffff',
-            weight: 1,
-            fillColor: '#ff6600'
-          });
-        });
-      }
-    }).addTo(map);
-
-
-// Create a simple search input control
-var searchControl = L.control({ position: 'topleft' });
-
-searchControl.onAdd = function(map) {
-  var container = L.DomUtil.create('input', 'leaflet-bar leaflet-control');
-  container.type = 'text';
-  container.placeholder = 'Search shops...';
-  container.style.padding = '5px';
-  container.style.width = '150px';
-
-  // Prevent map dragging when interacting with input
-  L.DomEvent.disableClickPropagation(container);
-  L.DomEvent.disableScrollPropagation(container);
-
-  container.oninput = function() {
-    var val = this.value.toLowerCase();
-
-    clothingShopsLayer.eachLayer(function(layer) {
-      var name = layer.feature.properties.name.toLowerCase();
-      if (name.includes(val)) {
-        layer.setStyle({ fillColor: 'yellow', color: 'black', weight: 3 });
-        layer.openPopup();
-        map.setView(layer.getLatLng(), 16);
-      } else {
-        layer.setStyle({ fillColor: '#ff6600', color: '#ffffff', weight: 1 });
-        layer.closePopup();
-      }
-    });
-  };
-
-  return container;
-};
-
-searchControl.addTo(map);
-
-
-
-    //---- Part 6: Adding a layer control for base maps and feature layers
-
-    var baseMaps = {
-      "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-      }),
-      "CartoDB Positron": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-      })
-    };
-
-    baseMaps["OpenStreetMap"].addTo(map);
-
-    var overlayMaps = {
-      "Clothing Shops": clothingShopsLayer
-    };
-
-    L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
+// When location is found, place a custom marker and popup
+map.on("locationfound", (e) => {
+  const locationIcon = L.icon({
+    iconUrl: "icons/location.png",
+    iconSize: [30, 30],
+    iconAnchor: [15, 30]
   });
 
-// Add a legend to the map
-  var legend = L.control({position: 'bottomleft'});
+  L.marker(e.latlng, { icon: locationIcon })
+    .addTo(map)
+    .bindPopup("You are here")
+    .openPopup();
+});
 
-legend.onAdd = function(map) {
-  var div = L.DomUtil.create('div', 'legend');
-  div.style.background = 'rgba(255, 255, 255, 0.8)';
-  div.style.padding = '6px 10px';
-  div.style.borderRadius = '4px';
-  div.style.boxShadow = '0 0 6px rgba(0,0,0,0.3)';
-  div.innerHTML = 
-    '<b>Legend</b><br>' +
-    '<i style="background:#ff6600; width:16px; height:16px; display:inline-block; margin-right:6px;"></i> Clothing Shops';
-  return div;
-};
+//
+// --- Part 4: Load GeoJSON data and initialize filters ---
+//
 
-legend.addTo(map);
+// Variables to hold all features and state of current filters
+let allFeatures = [];
+let geojsonLayer = null;
+let currentType = "all";
+let currentCategory = "all";
+let shopMarkers = []; 
+
+let markers = [];
 
 
-//---- Part 7: Adding interactive highlighting and zooming to map features
- 
+// Load GeoJSON data from external file
+fetch("data/clothshops-data.geojson")
+  .then(res => res.json())
+  .then(data => {
+    allFeatures = data.features;
+    filterAndSearch(); // Initial display of all features
+  })
+  .catch(err => console.error("GeoJSON load error:", err));
 
-function highlightFeature(e) {
-    var activefeature = e.target;  //access to activefeature that was hovered over through e.target
-	
-    activefeature.setStyle({
-        weight: 7,
-        color: '#333',
-        dashArray: '',
-        fillOpacity: 0.5
+//
+// --- Part 5: Display filtered shops on the map ---
+function displayShops(features) {
+  // Fade out and remove previous markers
+  shopMarkers.forEach(marker => {
+    fadeOut(marker);
+  });
+  shopMarkers = [];
+
+  // Create and fade in new markers
+  features.forEach(feature => {
+    let type = feature.properties.clothes.split(",")[0].trim().toLowerCase();
+    const icon = L.icon({
+      iconUrl: `icons/${type}.png`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -30]
     });
-	
-    if (!L.Browser.ie && !L.Browser.opera) {
-        activefeature.bringToFront();
+
+    const marker = L.marker(
+      [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
+      { icon }
+    );
+
+    marker.feature = feature;
+
+    marker.bindPopup(
+      `<b>${feature.properties.name || "Unnamed Shop"}</b><br>` +
+      `Type: ${feature.properties.clothes}<br>` +
+      `Category: ${feature.properties.category}<br>` +
+      `Opening hours: ${feature.properties.opening_ho}`
+    );
+
+    marker.on("click", () => {
+      map.setView(marker.getLatLng(), 17);
+    });
+
+    fadeIn(marker);
+    shopMarkers.push(marker);
+  });
+}
+
+
+
+//
+// --- Part 6: Filtering shops by type, category, and search ---
+//
+function filterAndSearch() {
+  const query = document.getElementById("searchInput").value.toLowerCase();
+
+  const filtered = allFeatures.filter(f => {
+    const matchesType = currentType === "all" || f.properties.clothes.toLowerCase().includes(currentType);
+    const matchesSearch = f.properties.name.toLowerCase().includes(query);
+    const matchesCategory = currentCategory === "all" || f.properties.category.toLowerCase() === currentCategory;
+    return matchesType && matchesSearch && matchesCategory;
+  });
+
+  displayShops(filtered);
+}
+
+//
+// --- Part 7: UI event listeners for filters ---
+//
+
+// Filter by clothing type (clickable legend items)
+document.querySelectorAll(".legend-item").forEach(item => {
+  item.addEventListener("click", () => {
+    currentType = item.dataset.type.toLowerCase();
+    document.querySelectorAll(".legend-item").forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+    filterAndSearch();
+  });
+});
+
+// Filter by search input (button click or Enter key)
+document.getElementById("searchButton").addEventListener("click", filterAndSearch);
+document.getElementById("searchInput").addEventListener("keypress", e => {
+  if (e.key === "Enter") filterAndSearch();
+});
+
+// Filter by clothing category (select dropdown)
+document.getElementById("categorySelect").addEventListener("change", (e) => {
+  currentCategory = e.target.value;
+  filterAndSearch();
+});
+
+// Metadata show/hide logic
+const metadataPanel = document.getElementById("metadataPanel");
+const metadataCloseBtn = document.getElementById("metadataCloseBtn");
+const metadataToggleBtn = document.getElementById("metadataToggleBtn");
+
+// Show panel on load in center
+metadataPanel.classList.remove("hidden");
+metadataPanel.classList.add("center");
+metadataToggleBtn.style.display = "none";
+
+// When OK is clicked
+metadataCloseBtn.addEventListener("click", () => {
+  // Animate hiding
+  metadataPanel.classList.add("hidden");
+
+  // After animation, move to top-left
+  setTimeout(() => {
+    metadataPanel.classList.remove("center");
+    metadataPanel.classList.add("left");
+    metadataToggleBtn.style.display = "block";
+  }, 500); // match CSS transition duration
+});
+
+// 📕 button shows panel again at top-left
+metadataToggleBtn.addEventListener("click", () => {
+  metadataPanel.classList.remove("hidden");
+  metadataToggleBtn.style.display = "none";
+});
+
+function fadeOut(marker, callback) {
+  const el = marker.getElement();
+  if (!el) {
+    map.removeLayer(marker);
+    if (callback) callback();
+    return;
+  }
+
+  el.style.opacity = 1;
+
+  let opacity = 1;
+  const interval = setInterval(() => {
+    opacity -= 0.1;
+    el.style.opacity = opacity;
+
+    if (opacity <= 0) {
+      clearInterval(interval);
+      map.removeLayer(marker);
+      if (callback) callback();
     }
+  }, 20);
 }
 
+function fadeIn(marker) {
+  marker.addTo(map);
 
-//function for resetting the highlight
-function resetHighlight(e) {
+  const el = marker.getElement();
+  if (!el) return;
+
+  el.style.opacity = 0;
+  let opacity = 0;
+
+  const interval = setInterval(() => {
+    opacity += 0.1;
+    el.style.opacity = opacity;
+
+    if (opacity >= 1) clearInterval(interval);
+  }, 20);
 }
-
-function zoomToFeature(e) {
-    map.fitBounds(e.target.getBounds());
-}
-
-//to call these methods we need to add listeners to our features
-
-function interactiveFunction(feature, layer) {
-    layer.on({
-        mouseover: highlightFeature,
-        mouseout: resetHighlight,
-        click: zoomToFeature
-   } );
-}
-
 
 
 
